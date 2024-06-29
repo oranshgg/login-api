@@ -4,32 +4,27 @@ import (
 	"login-api/config"
 	"login-api/models"
 	"net/http"
-	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var jwtKey = []byte("my_secret_key")
-
-type Claims struct {
-	Username string `json:"username"`
-	jwt.StandardClaims
-}
 
 func Ping(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "ping"})
 }
 
 func Register(c *gin.Context) {
+	/*
+		En realidad acá se deberían validar los parámetros de la request y desp llamar
+		a un servicio para la consulta a la DB.
+	*/
 	var userInput models.User
 	if err := c.ShouldBindJSON(&userInput); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	hashedPassword, err := HashPassword(userInput.Password)
+	hashedPassword, err := hashPassword(userInput.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
@@ -45,6 +40,10 @@ func Register(c *gin.Context) {
 }
 
 func Login(c *gin.Context) {
+	/*
+		En realidad acá se deberían validar los parámetros de la request y desp llamar
+		a un servicio para la consulta a la DB.
+	*/
 	var user models.User
 	if err := c.BindJSON(&user); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
@@ -62,25 +61,33 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	expirationTime := time.Now().Add(5 * time.Minute)
-	claims := &Claims{
-		Username: user.Username,
-		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: expirationTime.Unix(),
-		},
-	}
+	jwtToken, err := GenerateToken(storedUser.Username, storedUser.ID)
 
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(jwtKey)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not authenticate user"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": tokenString})
+	c.JSON(http.StatusOK, gin.H{"token": jwtToken})
 }
 
-func HashPassword(password string) (string, error) {
+func ValidateToken(c *gin.Context) {
+	jwtToken := c.Request.Header.Get("Authorization")
+
+	if jwtToken == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authorized"})
+		return
+	}
+
+	err := VerifyToken(jwtToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not authorized"})
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
+}
+
+func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err
 }
