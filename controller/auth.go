@@ -68,7 +68,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"token": jwtToken})
+	c.JSON(http.StatusOK, gin.H{"token": jwtToken, "id": storedUser.ID})
 }
 
 func ValidateToken(c *gin.Context) {
