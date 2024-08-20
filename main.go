@@ -6,6 +6,7 @@ import (
 	"log"
 	"login-api/config"
 	"login-api/controller"
+	"login-api/utils"
 )
 
 func main() {
@@ -15,11 +16,14 @@ func main() {
 	}
 
 	r := gin.Default()
+	rateLimiter := utils.NewRateLimiter()
 
 	config.ConnectDatabase()
 
+	r.Use(rateLimiter.Limit)
+
 	r.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:3000")
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "http://localhost:5000")
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, GET, OPTIONS, PUT, DELETE")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
