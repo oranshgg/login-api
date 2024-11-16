@@ -87,6 +87,46 @@ func ValidateToken(c *gin.Context) {
 	c.JSON(http.StatusNoContent, nil)
 }
 
+func UpdatePassword(c *gin.Context) {
+	// Request body structure
+	var passwordInput models.UpdatePasswordStruct
+
+	// Bind the JSON input to the struct
+	if err := c.ShouldBindJSON(&passwordInput); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Find the user in the database
+	var user models.User
+	if err := config.DB.Where("username = ?", passwordInput.Username).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid username"})
+		return
+	}
+
+	// Check if the old password is correct
+	if bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(passwordInput.OldPassword)) != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Incorrect old password"})
+		return
+	}
+
+	// Hash the new password
+	hashedPassword, err := hashPassword(passwordInput.NewPassword)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash new password"})
+		return
+	}
+
+	// Update the password and save changes
+	user.Password = hashedPassword
+	if err := config.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Password updated successfully"})
+}
+
 func hashPassword(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
 	return string(bytes), err

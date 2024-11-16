@@ -40,6 +40,7 @@ func main() {
 	r.POST("/login", controller.Login)
 	r.GET("/validate-token", controller.ValidateToken)
 	r.GET("/ping", controller.Ping)
+	r.PUT("/update", controller.UpdatePassword)
 
 	err := r.Run(":8081")
 	if err != nil {
